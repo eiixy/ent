@@ -202,6 +202,7 @@ var (
 		{Name: "group", Type: field.TypeString, Nullable: true},
 		{Name: "op", Type: field.TypeBool, Nullable: true},
 		{Name: "field_id", Type: field.TypeInt, Nullable: true},
+		{Name: "create_time", Type: field.TypeTime, Unique: true, Nullable: true},
 		{Name: "file_type_files", Type: field.TypeInt, Nullable: true},
 		{Name: "group_files", Type: field.TypeInt, Nullable: true},
 		{Name: "user_files", Type: field.TypeInt, Nullable: true},
@@ -214,19 +215,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "files_file_types_files",
-				Columns:    []*schema.Column{FilesColumns[8]},
+				Columns:    []*schema.Column{FilesColumns[9]},
 				RefColumns: []*schema.Column{FileTypesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "files_groups_files",
-				Columns:    []*schema.Column{FilesColumns[9]},
+				Columns:    []*schema.Column{FilesColumns[10]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "files_users_files",
-				Columns:    []*schema.Column{FilesColumns[10]},
+				Columns:    []*schema.Column{FilesColumns[11]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -245,17 +246,17 @@ var (
 			{
 				Name:    "file_user_files_file_type_files",
 				Unique:  false,
-				Columns: []*schema.Column{FilesColumns[10], FilesColumns[8]},
+				Columns: []*schema.Column{FilesColumns[11], FilesColumns[9]},
 			},
 			{
 				Name:    "file_name_user_files_file_type_files",
 				Unique:  true,
-				Columns: []*schema.Column{FilesColumns[3], FilesColumns[10], FilesColumns[8]},
+				Columns: []*schema.Column{FilesColumns[3], FilesColumns[11], FilesColumns[9]},
 			},
 			{
 				Name:    "file_name_user_files",
 				Unique:  false,
-				Columns: []*schema.Column{FilesColumns[3], FilesColumns[10]},
+				Columns: []*schema.Column{FilesColumns[3], FilesColumns[11]},
 			},
 		},
 	}
@@ -380,6 +381,7 @@ var (
 		{Name: "uuid", Type: field.TypeUUID, Nullable: true},
 		{Name: "nickname", Type: field.TypeString, Nullable: true},
 		{Name: "trained", Type: field.TypeBool, Default: false},
+		{Name: "optional_time", Type: field.TypeTime, Nullable: true},
 		{Name: "user_pets", Type: field.TypeInt, Nullable: true},
 		{Name: "user_team", Type: field.TypeInt, Unique: true, Nullable: true},
 	}
@@ -391,13 +393,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "pet_users_pets",
-				Columns:    []*schema.Column{PetColumns[6]},
+				Columns:    []*schema.Column{PetColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "pet_users_team",
-				Columns:    []*schema.Column{PetColumns[7]},
+				Columns:    []*schema.Column{PetColumns[8]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -406,7 +408,7 @@ var (
 			{
 				Name:    "pet_name_user_pets",
 				Unique:  false,
-				Columns: []*schema.Column{PetColumns[2], PetColumns[6]},
+				Columns: []*schema.Column{PetColumns[2], PetColumns[7]},
 			},
 			{
 				Name:    "pet_nickname",
