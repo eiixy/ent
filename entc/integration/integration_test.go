@@ -17,7 +17,9 @@ import (
 	"net"
 	"net/url"
 	"reflect"
+	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -104,7 +106,16 @@ func TestMaria(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
-	for version, port := range map[string]int{"10": 5430, "11": 5431, "12": 5432, "13": 5433, "14": 5434, "15": 5435} {
+	for version, port := range map[string]int{
+		"10": 5430,
+		"11": 5431,
+		"12": 5432,
+		"13": 5433,
+		"14": 5434,
+		"15": 5435,
+		"16": 5436,
+		"17": 5437,
+	} {
 		addr := fmt.Sprintf("host=localhost port=%d user=postgres dbname=test password=pass sslmode=disable", port)
 		t.Run(version, func(t *testing.T) {
 			t.Parallel()
@@ -2130,18 +2141,23 @@ func (f writerFunc) Write(p []byte) (int, error) { return f(p) }
 func NoSchemaChanges(t *testing.T, client *ent.Client) {
 	w := writerFunc(func(p []byte) (int, error) {
 		stmt := strings.Trim(string(p), "\n;")
-		ok := []string{"BEGIN", "COMMIT"}
-		if strings.Contains(t.Name(), "SQLite") {
-			ok = append(ok, "PRAGMA foreign_keys = off", "PRAGMA foreign_keys = on")
+		ok := []*regexp.Regexp{
+			regexp.MustCompile("^BEGIN$"),
+			regexp.MustCompile("^COMMIT$"),
 		}
-		if !func() bool {
-			for _, s := range ok {
-				if s == stmt {
-					return true
-				}
-			}
-			return false
-		}() {
+		switch {
+		case strings.Contains(t.Name(), "SQLite"):
+			ok = append(ok, regexp.MustCompile("^PRAGMA foreign_keys = (off|on)$"))
+		case strings.Contains(t.Name(), "MySQL"), strings.Contains(t.Name(), "Maria"):
+			ok = append(ok, regexp.MustCompile("^ALTER TABLE `\\w+` AUTO_INCREMENT \\d+$"))
+		}
+		if !slices.ContainsFunc(ok, func(re *regexp.Regexp) bool {
+			return re.MatchString(stmt)
+		}) {
+			// MySQL 5.6 + 5.7, and MariaDB 10.x store auto-increment counter in memory. In cases the server is
+			// restarted, and there are no rows, the counter is reset. Atlas "fixes" this by setting the auto-increment
+			// value in those cases. Therefore, statements following the pattern
+			// "ALTER TABLE `<table>` AUTO_INCREMENT = <value>" are allowed.
 			t.Errorf("expect no statement to execute. got: %q", stmt)
 		}
 		return len(p), nil

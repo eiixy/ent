@@ -38,6 +38,9 @@ func LoadGraph(schemaPath string, cfg *gen.Config) (*gen.Graph, error) {
 		// before the schema package (`<project>/ent/schema`).
 		cfg.Package = path.Dir(spec.PkgPath)
 	}
+	if err := defaultTarget(schemaPath, cfg); err != nil {
+		return nil, err
+	}
 	return gen.NewGraph(cfg, spec.Schemas...)
 }
 
@@ -53,14 +56,8 @@ func LoadGraph(schemaPath string, cfg *gen.Config) (*gen.Graph, error) {
 //		IDType: &field.TypeInfo{Type: field.TypeInt},
 //	})
 func Generate(schemaPath string, cfg *gen.Config, options ...Option) error {
-	if cfg.Target == "" {
-		abs, err := filepath.Abs(schemaPath)
-		if err != nil {
-			return err
-		}
-		// default target-path for codegen is one dir above
-		// the schema.
-		cfg.Target = filepath.Dir(abs)
+	if err := defaultTarget(schemaPath, cfg); err != nil {
+		return err
 	}
 	for _, opt := range options {
 		if err := opt(cfg); err != nil {
@@ -409,7 +406,7 @@ func generate(schemaPath string, cfg *gen.Config) error {
 }
 
 func mayRecover(err error, schemaPath string, cfg *gen.Config) error {
-	if enabled, _ := cfg.FeatureEnabled(gen.FeatureSnapshot.Name); !enabled {
+	if ok, _ := cfg.FeatureEnabled(gen.FeatureSnapshot.Name); !ok {
 		return err
 	}
 	if !errors.As(err, &packages.Error{}) && !internal.IsBuildError(err) {
@@ -418,6 +415,14 @@ func mayRecover(err error, schemaPath string, cfg *gen.Config) error {
 	// If the build error comes from the schema package.
 	if err := internal.CheckDir(schemaPath); err != nil {
 		return fmt.Errorf("schema failure: %w", err)
+	}
+	if ok, _ := cfg.FeatureEnabled(gen.FeatureGlobalID.Name); ok {
+		if internal.CheckDir(filepath.Dir(gen.IncrementStartsFilePath(cfg.Target))) != nil {
+			// Resolve the conflict by accepting the remote version of the file.
+			if err := gen.ResolveIncrementStartsConflict(cfg.Target); err != nil {
+				return err
+			}
+		}
 	}
 	target := filepath.Join(cfg.Target, "internal/schema.go")
 	return (&internal.Snapshot{Path: target, Config: cfg}).Restore()
@@ -429,4 +434,18 @@ func indirect(t reflect.Type) reflect.Type {
 		t = t.Elem()
 	}
 	return t
+}
+
+// defaultTarget computes and sets the default target-path for codegen (one level above schema-path).
+func defaultTarget(schemaPath string, cfg *gen.Config) error {
+	if cfg.Target != "" {
+		return nil
+	}
+	abs, err := filepath.Abs(schemaPath)
+	if err != nil {
+		return err
+	}
+	// Default target-path for codegen is one dir above the schema.
+	cfg.Target = filepath.Dir(abs)
+	return nil
 }
